@@ -114,7 +114,6 @@ public class EmbeddedCacheManagerService implements Service<CacheContainer> {
             if (machine != null) {
                 fluentTransport.machineId(machine);
             }
-            fluentTransport.nodeName(transport.getEnvironment().getNodeName());
             fluentTransport.clusterName(this.configuration.getName());
 
             ChannelProvider.init(global, transport.getChannelFactory());

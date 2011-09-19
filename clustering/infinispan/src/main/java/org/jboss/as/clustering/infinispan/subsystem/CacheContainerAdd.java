@@ -60,7 +60,6 @@ import org.jboss.as.naming.deployment.ContextNames;
 import org.jboss.as.naming.deployment.JndiName;
 import org.jboss.as.naming.service.BinderService;
 import org.jboss.as.server.ServerEnvironment;
-import org.jboss.as.server.ServerEnvironmentService;
 import org.jboss.as.server.services.path.AbstractPathService;
 import org.jboss.as.threads.ThreadsServices;
 import org.jboss.as.txn.TxnServices;
@@ -341,7 +340,6 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
                 }
             }
             builder.addDependency(ChannelFactoryService.getServiceName(stack), ChannelFactory.class, transportConfig.getChannelFactoryInjector());
-            builder.addDependency(ServerEnvironmentService.SERVICE_NAME, ServerEnvironment.class, transportConfig.getEnvironmentInjector());
             config.setTransport(transportConfig);
         }
 
@@ -516,7 +514,6 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
     static class Transport implements TransportConfiguration {
         private final InjectedValue<ChannelFactory> channelFactory = new InjectedValue<ChannelFactory>();
         private final InjectedValue<Executor> executor = new InjectedValue<Executor>();
-        private final InjectedValue<ServerEnvironment> environment = new InjectedValue<ServerEnvironment>();
 
         private Long lockTimeout;
         private String site;
@@ -545,15 +542,6 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
 
         Injector<Executor> getExecutorInjector() {
             return this.executor;
-        }
-
-        Injector<ServerEnvironment> getEnvironmentInjector() {
-            return this.environment;
-        }
-
-        @Override
-        public ServerEnvironment getEnvironment() {
-            return this.environment.getValue();
         }
 
         @Override

@@ -106,7 +106,7 @@ public class ProtocolStackAdd extends AbstractAddStepHandler implements Descript
                 .addDependency(ServerEnvironmentService.SERVICE_NAME, ServerEnvironment.class, stackConfig.getEnvironmentInjector())
                 ;
         if (transport.hasDefined(ModelKeys.SHARED)) {
-            transportConfig.setShared(transport.asBoolean());
+            transportConfig.setShared(transport.get(ModelKeys.SHARED).asBoolean());
         }
         build(builder, transport, transportConfig);
         addSocketBindingDependency(builder, transport, ModelKeys.DIAGNOSTICS_SOCKET_BINDING, transportConfig.getDiagnosticsSocketBindingInjector());
