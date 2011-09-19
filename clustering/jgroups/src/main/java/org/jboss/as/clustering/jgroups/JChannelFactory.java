@@ -77,12 +77,14 @@ public class JChannelFactory implements ChannelFactory, ChannelListener, Protoco
         } else {
             this.init(transport);
         }
-
+/*
         // Get hostname without triggering reverse dns lookup
         String address = transport.getBindAddressAsInetAddress().toString();
         int index = address.indexOf("/");
         channel.setName(InetSocketAddress.createUnresolved((index > 0) ? address.substring(0, index) : address.substring(1), transport.getBindPort()).toString());
-
+*/
+        channel.setName(configuration.getEnvironment().getNodeName());
+        
         MBeanServer server = this.configuration.getMBeanServer();
         if (server != null) {
             try {
