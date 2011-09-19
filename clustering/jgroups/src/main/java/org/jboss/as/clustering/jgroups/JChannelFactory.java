@@ -78,7 +78,7 @@ public class JChannelFactory implements ChannelFactory, ChannelListener, Protoco
             this.init(transport);
         }
 
-        channel.setName(configuration.getEnvironment().getNodeName() + "-" + id);
+        channel.setName(configuration.getEnvironment().getNodeName() + "/" + id);
 
         MBeanServer server = this.configuration.getMBeanServer();
         if (server != null) {
