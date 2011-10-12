@@ -35,5 +35,9 @@
         <module name="org.jboss.marshalling"/>
         <module name="org.jboss.marshalling.river" services="import"/>
         <module name="org.jgroups" optional="true"/>
+
+        <module name="org.slf4j"/>
+        <module name="org.hibernate"/>
+        <module name="org.apache.lucene"/>
     </dependencies>
 </module>

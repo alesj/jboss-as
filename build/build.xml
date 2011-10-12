@@ -347,6 +347,10 @@
             <maven-resource group="log4j" artifact="log4j"/>
         </module-def>
 
+        <module-def name="org.apache.lucene">
+            <maven-resource group="org.apache.lucene" artifact="lucene-core"/>
+        </module-def>
+
         <module-def name="org.apache.neethi">
             <maven-resource group="org.apache.neethi" artifact="neethi"/>
         </module-def>
@@ -422,6 +426,8 @@
 
         <module-def name="org.infinispan">
             <maven-resource group="org.infinispan" artifact="infinispan-core"/>
+            <maven-resource group="org.infinispan" artifact="infinispan-query"/>
+            <maven-resource group="org.hibernate" artifact="hibernate-search"/>
         </module-def>
 
         <module-def name="org.jacorb">
