@@ -27,7 +27,7 @@ import java.util.Properties;
 import org.infinispan.config.GlobalConfiguration;
 import org.infinispan.remoting.transport.jgroups.JGroupsChannelLookup;
 import org.infinispan.remoting.transport.jgroups.JGroupsTransport;
-import org.jboss.as.clustering.jgroups.ChannelFactory;
+import org.jboss.msc.value.Value;
 import org.jgroups.Channel;
 
 /**
@@ -35,14 +35,12 @@ import org.jgroups.Channel;
  */
 public class ChannelProvider implements JGroupsChannelLookup {
 
-    private static final String CHANNEL_FACTORY = "channel-factory";
-    private static final String ID = "id";
+    private static final String CHANNEL = "channel";
 
-    public static void init(GlobalConfiguration global, ChannelFactory factory) {
+    public static void init(GlobalConfiguration global, Value<Channel> channel) {
         Properties properties = global.getTransportProperties();
         properties.setProperty(JGroupsTransport.CHANNEL_LOOKUP, ChannelProvider.class.getName());
-        properties.put(CHANNEL_FACTORY, factory);
-        properties.put(ID, global.getClusterName());
+        properties.put(CHANNEL, channel);
     }
 
     /**
@@ -51,25 +49,16 @@ public class ChannelProvider implements JGroupsChannelLookup {
      */
     @Override
     public Channel getJGroupsChannel(Properties properties) {
-        ChannelFactory factory = (ChannelFactory) properties.get(CHANNEL_FACTORY);
+        @SuppressWarnings("unchecked")
+        Value<Channel> channel = (Value<Channel>) properties.get(CHANNEL);
 
-        if (factory == null) {
-            throw new IllegalStateException(String.format("No %s property was specified within the transport properties: %s", CHANNEL_FACTORY, properties));
+        if (channel == null) {
+            throw new IllegalStateException(String.format("No %s property was specified within the transport properties: %s", CHANNEL, properties));
         }
-
-        String id = properties.getProperty(ID);
-
-        if (id == null) {
-            throw new IllegalStateException(String.format("No %s property was specified within the transport properties: %s", ID, properties));
+        if (!channel.getValue().isConnected()) {
+            throw new IllegalStateException("Not connected.");
         }
-
-        try {
-            return factory.createChannel(id);
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalArgumentException(e);
-        }
+        return channel.getValue();
     }
 
     /**
@@ -78,7 +67,7 @@ public class ChannelProvider implements JGroupsChannelLookup {
      */
     @Override
     public boolean shouldStartAndConnect() {
-        return true;
+        return false;
     }
 
     /**
@@ -87,6 +76,6 @@ public class ChannelProvider implements JGroupsChannelLookup {
      */
     @Override
     public boolean shouldStopAndDisconnect() {
-        return true;
+        return false;
     }
 }

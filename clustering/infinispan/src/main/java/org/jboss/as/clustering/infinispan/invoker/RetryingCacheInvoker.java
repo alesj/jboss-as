@@ -21,7 +21,10 @@
  */
 package org.jboss.as.clustering.infinispan.invoker;
 
+import javax.transaction.RollbackException;
+
 import org.infinispan.Cache;
+import org.infinispan.CacheException;
 import org.infinispan.context.Flag;
 import org.infinispan.remoting.transport.jgroups.SuspectException;
 import org.infinispan.util.concurrent.TimeoutException;
@@ -69,6 +72,14 @@ public class RetryingCacheInvoker implements CacheInvoker {
                 exception = e;
             } catch (SuspectException e) {
                 exception = e;
+            } catch (CacheException e) {
+                Throwable cause = e.getCause();
+                if (cause instanceof RollbackException) {
+                    new Exception("Rollback!!!", cause).printStackTrace(System.err);
+                    exception = e;
+                } else {
+                    throw e;
+                }
             }
 
             if (i < this.backOffIntervals.length) {
@@ -76,8 +87,7 @@ public class RetryingCacheInvoker implements CacheInvoker {
 
                 try {
                     if (log.isTraceEnabled()) {
-                        log.trace(String.format("Cache operation failed.  Retrying in %d ms", Integer.valueOf(delay)),
-                                exception);
+                        log.tracef(exception, "Cache operation failed.  Retrying in %d ms", Integer.valueOf(delay));
                     }
 
                     Thread.sleep(delay);
@@ -87,8 +97,7 @@ public class RetryingCacheInvoker implements CacheInvoker {
             }
         }
 
-        throw new RuntimeException(String.format("Aborting cache operation after %d retries.",
-                Integer.valueOf(this.backOffIntervals.length + 1)), exception);
+        throw new RuntimeException(String.format("Aborting cache operation after %d retries.", Integer.valueOf(this.backOffIntervals.length + 1)), exception);
     }
 
     /**

@@ -45,9 +45,11 @@ import org.infinispan.loaders.AbstractCacheStoreConfig;
 import org.infinispan.loaders.CacheStore;
 import org.infinispan.loaders.CacheStoreConfig;
 import org.infinispan.manager.CacheContainer;
+import org.infinispan.transaction.LockingMode;
 import org.infinispan.util.concurrent.IsolationLevel;
 import org.jboss.as.clustering.jgroups.ChannelFactory;
 import org.jboss.as.clustering.jgroups.subsystem.ChannelFactoryService;
+import org.jboss.as.clustering.jgroups.subsystem.ChannelService;
 import org.jboss.as.controller.AbstractAddStepHandler;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.PathAddress;
@@ -72,7 +74,9 @@ import org.jboss.msc.service.ServiceController;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.ServiceTarget;
 import org.jboss.msc.value.InjectedValue;
+import org.jboss.msc.value.Value;
 import org.jboss.tm.XAResourceRecoveryRegistry;
+import org.jgroups.Channel;
 
 /**
  * @author Paul Ferraro
@@ -217,6 +221,7 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
             }
             FluentConfiguration.TransactionConfig fluentTx = fluent.transaction();
             TransactionMode txMode = TransactionMode.NON_XA;
+            LockingMode lockingMode = LockingMode.OPTIMISTIC;
             if (cache.hasDefined(ModelKeys.TRANSACTION)) {
                 ModelNode transaction = cache.get(ModelKeys.TRANSACTION);
                 if (transaction.hasDefined(ModelKeys.STOP_TIMEOUT)) {
@@ -225,11 +230,16 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
                 if (transaction.hasDefined(ModelKeys.MODE)) {
                     txMode = TransactionMode.valueOf(transaction.get(ModelKeys.MODE).asString());
                 }
+                if (transaction.hasDefined(ModelKeys.LOCKING)) {
+                    lockingMode = LockingMode.valueOf(transaction.get(ModelKeys.LOCKING).asString());
+                }
                 if (transaction.hasDefined(ModelKeys.EAGER_LOCKING)) {
                     EagerLocking eager = EagerLocking.valueOf(transaction.get(ModelKeys.EAGER_LOCKING).asString());
                     fluentTx.useEagerLocking(eager.isEnabled()).eagerLockSingleNode(eager.isSingleOwner());
                 }
             }
+            fluentTx.transactionMode(txMode.getMode());
+            fluentTx.lockingMode(lockingMode);
             FluentConfiguration.RecoveryConfig recovery = fluentTx.useSynchronization(!txMode.isXAEnabled()).recovery();
             if (txMode.isRecoveryEnabled()) {
                 recovery.syncCommitPhase(true).syncRollbackPhase(true);
@@ -339,8 +349,14 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
                     transportConfig.setMachine(transport.get(ModelKeys.MACHINE).asString());
                 }
             }
-            builder.addDependency(ChannelFactoryService.getServiceName(stack), ChannelFactory.class, transportConfig.getChannelFactoryInjector());
+            builder.addDependency(ChannelService.getServiceName(name), Channel.class, transportConfig.getChannelInjector());
             config.setTransport(transportConfig);
+
+            InjectedValue<ChannelFactory> channelFactory = new InjectedValue<ChannelFactory>();
+            newControllers.add(target.addService(ChannelService.getServiceName(name), new ChannelService(name, channelFactory))
+                    .addDependency(ChannelFactoryService.getServiceName(stack), ChannelFactory.class, channelFactory)
+                    .setInitialMode(ServiceController.Mode.ON_DEMAND)
+                    .install());
         }
 
         addExecutorDependency(builder, operation, ModelKeys.LISTENER_EXECUTOR, config.getListenerExecutorInjector());
@@ -512,7 +528,7 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
     }
 
     static class Transport implements TransportConfiguration {
-        private final InjectedValue<ChannelFactory> channelFactory = new InjectedValue<ChannelFactory>();
+        private final InjectedValue<Channel> channel = new InjectedValue<Channel>();
         private final InjectedValue<Executor> executor = new InjectedValue<Executor>();
 
         private Long lockTimeout;
@@ -536,8 +552,8 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
             this.machine = machine;
         }
 
-        Injector<ChannelFactory> getChannelFactoryInjector() {
-            return this.channelFactory;
+        Injector<Channel> getChannelInjector() {
+            return this.channel;
         }
 
         Injector<Executor> getExecutorInjector() {
@@ -545,8 +561,8 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
         }
 
         @Override
-        public ChannelFactory getChannelFactory() {
-            return this.channelFactory.getValue();
+        public Value<Channel> getChannel() {
+            return this.channel;
         }
 
         @Override

@@ -38,11 +38,10 @@ import org.jboss.as.clustering.ManagedExecutorService;
 import org.jboss.as.clustering.ManagedScheduledExecutorService;
 import org.jboss.as.network.SocketBinding;
 import org.jboss.logging.Logger;
-import org.jgroups.Address;
 import org.jgroups.Channel;
-import org.jgroups.ChannelException;
 import org.jgroups.ChannelListener;
 import org.jgroups.Global;
+import org.jgroups.JChannel;
 import org.jgroups.conf.ProtocolStackConfigurator;
 import org.jgroups.jmx.JmxConfigurator;
 import org.jgroups.protocols.TP;
@@ -255,85 +254,6 @@ public class JChannelFactory implements ChannelFactory, ChannelListener, Protoco
             } catch (Exception e) {
                 log.warn(e.getMessage(), e);
             }
-        }
-    }
-
-    @Override
-    @Deprecated
-    public void channelShunned() {
-        // no-op
-    }
-
-    @Override
-    @Deprecated
-    public void channelReconnected(Address addr) {
-        // no-op
-    }
-
-    // Workaround for JGRP-1314
-    // Synchronize on shared transport during channel connect
-    public static class JChannel extends org.jgroups.JChannel {
-        JChannel(ProtocolStackConfigurator configurator) throws ChannelException {
-            super(configurator);
-        }
-
-        @Override
-        public void connect(final String clusterName, final boolean useFlushIfPresent) throws ChannelException {
-            ConnectTask connectTask = new ConnectTask() {
-                @Override
-                public void connect() throws ChannelException {
-                    JChannel.super.connect(clusterName, useFlushIfPresent);
-                }
-            };
-            this.connect(connectTask);
-        }
-
-        @Override
-        public void connect(final String clusterName) throws ChannelException {
-            ConnectTask connectTask = new ConnectTask() {
-                @Override
-                public void connect() throws ChannelException {
-                    JChannel.super.connect(clusterName);
-                }
-            };
-            this.connect(connectTask);
-        }
-
-        @Override
-        public void connect(final String clusterName, final Address target, final String stateId, final long timeout) throws ChannelException {
-            ConnectTask connectTask = new ConnectTask() {
-                @Override
-                public void connect() throws ChannelException {
-                    JChannel.super.connect(clusterName, target, stateId, timeout);
-                }
-            };
-            this.connect(connectTask);
-        }
-
-        @Override
-        public void connect(final String clusterName, final Address target, final String stateId, final long timeout, final boolean useFlushIfPresent) throws ChannelException {
-            ConnectTask connectTask = new ConnectTask() {
-                @Override
-                public void connect() throws ChannelException {
-                    JChannel.super.connect(clusterName, target, stateId, timeout, useFlushIfPresent);
-                }
-            };
-            this.connect(connectTask);
-        }
-
-        private void connect(ConnectTask connectTask) throws ChannelException {
-            TP transport = this.getProtocolStack().getTransport();
-            if (transport.isSingleton()) {
-                synchronized (transport) {
-                    connectTask.connect();
-                }
-            } else {
-                connectTask.connect();
-            }
-        }
-
-        private interface ConnectTask {
-            void connect() throws ChannelException;
         }
     }
 }

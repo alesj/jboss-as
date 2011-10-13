@@ -96,8 +96,7 @@ public abstract class AbstractClusterLockSupport implements GroupMembershipListe
             throw new IllegalArgumentException("localHandler is null");
         }
         if (!rpcDispatcher.isConsistentWith(membershipNotifier)) {
-            throw new IllegalArgumentException(GroupRpcDispatcher.class.getSimpleName() + " " + rpcDispatcher
-                    + " is not compatible with " + GroupMembershipNotifier.class.getSimpleName() + " " + membershipNotifier);
+            throw new IllegalArgumentException(String.format("%s %s is not compatible with %s %s", GroupRpcDispatcher.class.getSimpleName(), rpcDispatcher, GroupMembershipNotifier.class.getSimpleName(), membershipNotifier));
         }
 
         this.rpcDispatcher = rpcDispatcher;
@@ -149,8 +148,7 @@ public abstract class AbstractClusterLockSupport implements GroupMembershipListe
                     // Get the lock on all other nodes in the cluster
 
                     List<RemoteLockResponse> rsps = rpcDispatcher.callMethodOnCluster(getServiceHAName(), "remoteLock",
-                            new Object[] { lockId, me, new Long(left) }, REMOTE_LOCK_TYPES, RemoteLockResponse.class, true,
-                            null, rpcDispatcher.getMethodCallTimeout(), false);
+                            new Object[] { lockId, me, new Long(left) }, REMOTE_LOCK_TYPES, true, null, rpcDispatcher.getMethodCallTimeout(), false);
 
                     boolean remoteLocked = true;
                     if (rsps != null) {
@@ -159,8 +157,7 @@ public abstract class AbstractClusterLockSupport implements GroupMembershipListe
                                 remoteLocked = false;
                                 if (superiorCompetitor == null) {
                                     superiorCompetitor = getSuperiorCompetitor(rsp.holder);
-                                    log.debug("Received " + rsp.flag + " response from " + rsp.responder
-                                            + " -- reports lock is held by " + rsp.holder);
+                                    log.debugf("Received %s response from %s -- reports lock is held by %s", rsp.flag, rsp.responder,rsp.holder);
                                 }
                             }
                         }
@@ -446,7 +443,7 @@ public abstract class AbstractClusterLockSupport implements GroupMembershipListe
             localHandler.lockFromCluster(categoryName, caller, timeout);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            log.error("Caught InterruptedException; Failing request by " + caller + " to lock " + categoryName);
+            log.errorf("Caught InterruptedException; Failing request by %s to lock %s", caller, categoryName);
             return new RemoteLockResponse(me, RemoteLockResponse.Flag.FAIL, localHandler.getLockHolder(categoryName));
         } catch (TimeoutException t) {
             return new RemoteLockResponse(me, RemoteLockResponse.Flag.FAIL, t.getOwner());

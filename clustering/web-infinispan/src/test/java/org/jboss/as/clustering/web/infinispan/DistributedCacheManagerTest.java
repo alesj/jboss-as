@@ -160,25 +160,26 @@ public class DistributedCacheManagerTest {
         SessionKey key = mock(SessionKey.class);
         Map<Object, Object> map = mock(Map.class);
         @SuppressWarnings("rawtypes")
-        ArgumentCaptor<DistributedCacheManager.Operation> capturedOperation = ArgumentCaptor.forClass(DistributedCacheManager.Operation.class);
+        ArgumentCaptor<CacheInvoker.Operation> capturedOperation = ArgumentCaptor.forClass(CacheInvoker.Operation.class);
 
         String sessionId = "abc";
 
         when(data.getRealId()).thenReturn(sessionId);
         when(this.keyFactory.createKey(sessionId)).thenReturn(key);
-        when(this.sessionCache.startBatch()).thenReturn(true);
+//        when(this.sessionCache.startBatch()).thenReturn(true);
         when(this.invoker.invoke(same(this.sessionCache), capturedOperation.capture())).thenReturn(null);
 
         this.manager.storeSessionData(data);
 
-        verify(this.sessionCache).endBatch(true);
+//        verify(this.sessionCache).endBatch(true);
 
-        DistributedCacheManager<OutgoingDistributableSessionData, SessionKey>.Operation<Void> operation = capturedOperation.getValue();
+        CacheInvoker.Operation<SessionKey, Map<Object, Object>, Void> operation = capturedOperation.getValue();
 
         int version = 10;
         long timestamp = System.currentTimeMillis();
         DistributableSessionMetadata metadata = new DistributableSessionMetadata();
 
+//        when(this.sessionCache.startBatch()).thenReturn(true);
         when(data.getVersion()).thenReturn(version);
         when(map.put(Byte.valueOf((byte) SessionMapEntry.VERSION.ordinal()), version)).thenReturn(null);
         when(data.getTimestamp()).thenReturn(timestamp);
@@ -191,6 +192,7 @@ public class DistributedCacheManagerTest {
         operation.invoke(this.sessionCache);
 
         verify(this.storage).store(same(map), same(data));
+//        verify(this.sessionCache).endBatch(true);
     }
 
     @Test

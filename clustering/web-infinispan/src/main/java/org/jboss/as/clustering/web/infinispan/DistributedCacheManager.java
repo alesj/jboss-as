@@ -47,6 +47,7 @@ import org.infinispan.notifications.cachelistener.event.CacheEntryRemovedEvent;
 import org.infinispan.notifications.cachemanagerlistener.annotation.ViewChanged;
 import org.infinispan.notifications.cachemanagerlistener.event.ViewChangedEvent;
 import org.infinispan.remoting.transport.Address;
+import org.jboss.as.clustering.infinispan.invoker.BatchOperation;
 import org.jboss.as.clustering.infinispan.invoker.CacheInvoker;
 import org.jboss.as.clustering.lock.SharedLocalYieldingClusterLockManager;
 import org.jboss.as.clustering.web.BatchingManager;
@@ -577,6 +578,8 @@ public class DistributedCacheManager<T extends OutgoingDistributableSessionData,
     }
 
     private <R> R batch(Operation<R> operation) {
+        return this.invoker.invoke(this.sessionCache, new BatchOperation<K, Map<Object, Object>, R>(operation));
+/*
         boolean started = this.sessionCache.startBatch();
         boolean success = false;
 
@@ -591,6 +594,7 @@ public class DistributedCacheManager<T extends OutgoingDistributableSessionData,
                 this.sessionCache.endBatch(success);
             }
         }
+*/
     }
 
     @Listener(sync = false)

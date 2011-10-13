@@ -23,7 +23,8 @@ package org.jboss.as.clustering.infinispan.subsystem;
 
 import java.util.concurrent.Executor;
 
-import org.jboss.as.clustering.jgroups.ChannelFactory;
+import org.jboss.msc.value.Value;
+import org.jgroups.Channel;
 
 /**
  * @author Paul Ferraro
@@ -34,6 +35,6 @@ public interface TransportConfiguration {
     String getRack();
     String getMachine();
 
-    ChannelFactory getChannelFactory();
+    Value<Channel> getChannel();
     Executor getExecutor();
 }

@@ -44,7 +44,7 @@ import org.jgroups.conf.XmlConfigurator;
  */
 public class ProtocolDefaultsService implements Service<ProtocolDefaults> {
 
-    public static final ServiceName SERVICE_NAME = ServiceName.JBOSS.append(JGroupsExtension.SUBSYSTEM_NAME, "stack", "defaults");
+    public static final ServiceName SERVICE_NAME = ServiceName.JBOSS.append(JGroupsExtension.SUBSYSTEM_NAME, "defaults");
 
     private static final String DEFAULTS = "jgroups-defaults.xml";
     private static final Logger log = Logger.getLogger(ProtocolDefaultsService.class.getPackage().getName());
