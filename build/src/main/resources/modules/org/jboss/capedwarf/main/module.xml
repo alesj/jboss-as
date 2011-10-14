@@ -33,6 +33,7 @@
         <module name="javax.mail.api"/>
         <module name="org.javassist"/>
         <module name="org.infinispan"/>
+        <module name="org.infinispan.query"/>
         <module name="org.apache.httpcomponents"/>
         <module name="com.google.appengine"/>
     </dependencies>

@@ -411,6 +411,9 @@
         <module-def name="org.hibernate.envers">
             <maven-resource group="org.hibernate" artifact="hibernate-envers"/>
         </module-def>
+        <module-def name="org.hibernate.search">
+            <maven-resource group="org.hibernate" artifact="hibernate-search-engine"/>
+        </module-def>
         <module-def name="org.hibernate.validator">
             <maven-resource group="org.hibernate" artifact="hibernate-validator"/>
         </module-def>
@@ -426,8 +429,10 @@
 
         <module-def name="org.infinispan">
             <maven-resource group="org.infinispan" artifact="infinispan-core"/>
+        </module-def>
+
+        <module-def name="org.infinispan.query">
             <maven-resource group="org.infinispan" artifact="infinispan-query"/>
-            <maven-resource group="org.hibernate" artifact="hibernate-search"/>
         </module-def>
 
         <module-def name="org.jacorb">
@@ -650,8 +655,11 @@
         </module-def>
 
         <module-def name="org.jboss.capedwarf">
+            <maven-resource group="org.jboss.capedwarf.blue" artifact="capedwarf-blobstore"/>
             <maven-resource group="org.jboss.capedwarf.blue" artifact="capedwarf-common"/>
             <maven-resource group="org.jboss.capedwarf.blue" artifact="capedwarf-datastore"/>
+            <maven-resource group="org.jboss.capedwarf.blue" artifact="capedwarf-files"/>
+            <maven-resource group="org.jboss.capedwarf.blue" artifact="capedwarf-images"/>
             <maven-resource group="org.jboss.capedwarf.blue" artifact="capedwarf-mail"/>
             <maven-resource group="org.jboss.capedwarf.blue" artifact="capedwarf-urlfetch"/>
             <maven-resource group="org.jboss.capedwarf.blue" artifact="capedwarf-users"/>
