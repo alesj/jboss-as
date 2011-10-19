@@ -33,6 +33,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 
 import javax.servlet.ServletException;
@@ -59,10 +60,12 @@ import org.infinispan.manager.CacheContainer;
 import org.infinispan.manager.DefaultCacheManager;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.remoting.transport.Address;
+import org.infinispan.remoting.transport.jgroups.JGroupsChannelLookup;
 import org.infinispan.remoting.transport.jgroups.JGroupsTransport;
 import org.infinispan.util.concurrent.IsolationLevel;
 import org.jboss.as.clustering.infinispan.subsystem.EmbeddedCacheManagerDefaults;
 import org.jboss.as.clustering.infinispan.subsystem.EmbeddedCacheManagerDefaultsService;
+import org.jboss.as.clustering.jgroups.MuxChannel;
 import org.jboss.as.clustering.web.ClusteringNotSupportedException;
 import org.jboss.as.clustering.web.LocalDistributableSessionManager;
 import org.jboss.as.clustering.web.OutgoingDistributableSessionData;
@@ -86,6 +89,8 @@ import org.jboss.metadata.web.jboss.SnapshotMode;
 import org.jboss.msc.service.ServiceRegistry;
 import org.jboss.msc.service.StartContext;
 import org.jboss.msc.service.StartException;
+import org.jgroups.Channel;
+import org.jgroups.conf.XmlConfigurator;
 
 /**
  * Utilities for session testing.
@@ -136,6 +141,27 @@ public class SessionTestUtil {
         }
     }
 
+    public static class ChannelProvider implements JGroupsChannelLookup {
+        @Override
+        public Channel getJGroupsChannel(Properties properties) {
+            try {
+                return new MuxChannel(XmlConfigurator.getInstance(Thread.currentThread().getContextClassLoader().getResource("jgroups-udp.xml")));
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
+            }
+        }
+
+        @Override
+        public boolean shouldStartAndConnect() {
+            return true;
+        }
+
+        @Override
+        public boolean shouldStopAndDisconnect() {
+            return true;
+        }
+    }
+    
     private static volatile int containerIndex = 1;
     private static EmbeddedCacheManagerDefaults defaults = createDefaults();
     private static EmbeddedCacheManagerDefaults createDefaults() {
@@ -153,7 +179,8 @@ public class SessionTestUtil {
         GlobalConfiguration global = defaults.getGlobalConfiguration().clone();
         FluentGlobalConfiguration.TransportConfig transport = global.fluent().transport();
         if (mode.isClustered()) {
-            transport.transportClass(JGroupsTransport.class).addProperty("configurationFile", "jgroups-udp.xml");
+            transport.transportClass(JGroupsTransport.class);
+            transport.addProperty(JGroupsTransport.CHANNEL_LOOKUP, ChannelProvider.class.getName());
         } else {
             transport.transportClass(null);
         }
