@@ -64,7 +64,7 @@ public class JChannelFactory implements ChannelFactory, ChannelListener, Protoco
 
     @Override
     public Channel createChannel(String id) throws Exception {
-        JChannel channel = new JChannel(this);
+        JChannel channel = new MuxChannel(this);
 
         // We need to synchronize on shared transport,
         // so we don't attempt to init a shared transport multiple times
