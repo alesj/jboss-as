@@ -1399,14 +1399,14 @@ public class CoreGroupCommunicationService implements GroupRpcDispatcher, GroupM
             if (trace) {
                 this.log.trace("Partition " + CoreGroupCommunicationService.this.getGroupName() + " received msg");
             }
-            if (req == null || req.getBuffer() == null) {
+            if (req == null || req.getRawBuffer() == null) {
                 this.log.warn("Partition " + CoreGroupCommunicationService.this.getGroupName()
                         + " message or message buffer is null!");
                 return null;
             }
 
             try {
-                Object wrapper = CoreGroupCommunicationService.this.objectFromByteBufferInternal(req.getBuffer(), 0, req.getLength());
+                Object wrapper = CoreGroupCommunicationService.this.objectFromByteBufferInternal(req.getRawBuffer(), req.getOffset(), req.getLength());
                 if (wrapper == null || !(wrapper instanceof Object[])) {
                     this.log.warn("Partition " + CoreGroupCommunicationService.this.getGroupName()
                             + " message wrapper does not contain Object[] object!");
