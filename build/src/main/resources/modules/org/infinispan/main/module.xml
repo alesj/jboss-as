@@ -35,5 +35,6 @@
         <module name="org.jboss.marshalling"/>
         <module name="org.jboss.marshalling.river" services="import"/>
         <module name="org.jgroups" optional="true"/>
+        <module name="org.infinispan.query" optional="true"/>
     </dependencies>
 </module>
