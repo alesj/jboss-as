@@ -29,12 +29,14 @@
 
     <dependencies>
         <module name="javax.api"/>
+        <module name="javax.transaction.api"/>
         <module name="javax.activation.api"/>
         <module name="javax.mail.api"/>
         <module name="org.javassist"/>
         <module name="org.infinispan"/>
         <module name="org.infinispan.query"/>
         <module name="org.hibernate.search"/>
+        <module name="org.apache.lucene"/>
         <module name="org.apache.httpcomponents"/>
         <module name="com.google.appengine"/>
     </dependencies>
