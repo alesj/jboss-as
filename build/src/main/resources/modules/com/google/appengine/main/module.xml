@@ -37,6 +37,8 @@
         <module name="javax.activation.api"/>
         <module name="javax.mail.api"/>
         <module name="org.jboss.capedwarf"/>
-        <module name="org.infinispan"/> <!-- needed for annotations to work (@Transformable, @Indexed, ...) -->
+        <!-- needed for annotations to work (@Transformable, @Indexed, ...) -->
+        <module name="org.infinispan.query"/>
+        <module name="org.hibernate.search"/>
     </dependencies>
 </module>

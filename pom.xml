@@ -65,7 +65,7 @@
         <version.commons-collections>3.2.1</version.commons-collections>
         <version.commons-io>1.4</version.commons-io>
         <version.commons-lang>2.4</version.commons-lang>
-        <version.com.google.appengine>1.5.4</version.com.google.appengine>
+        <version.com.google.appengine>1.5.5</version.com.google.appengine>
         <version.com.google.guava>r06</version.com.google.guava>
         <version.com.h2database.h2>1.2.145</version.com.h2database.h2>
         <version.dom4j>1.6.1</version.dom4j>
@@ -90,6 +90,7 @@
         <version.net.sourceforge.nekohtml.nekohtml>1.9.14</version.net.sourceforge.nekohtml.nekohtml>
         <version.org.apache.aries.jmx>0.3</version.org.apache.aries.jmx>
         <version.org.apache.ant>1.7.1</version.org.apache.ant>
+        <version.org.apache.avro>1.5.1</version.org.apache.avro>
         <version.org.apache.cxf>2.4.3</version.org.apache.cxf>
         <version.org.apache.cxf.xjcplugins>2.3.2</version.org.apache.cxf.xjcplugins>
         <version.org.apache.felix.configadmin>1.2.8</version.org.apache.felix.configadmin>
@@ -1295,6 +1296,12 @@
                        <artifactId>ant-launcher</artifactId>
                    </exclusion>
                </exclusions>
+            </dependency>
+
+            <dependency>
+               <groupId>org.apache.avro</groupId>
+               <artifactId>avro</artifactId>
+               <version>${version.org.apache.avro}</version>
             </dependency>
 
             <dependency>
