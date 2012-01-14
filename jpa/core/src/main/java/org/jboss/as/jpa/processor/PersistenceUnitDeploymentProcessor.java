@@ -35,6 +35,7 @@ import org.jboss.as.jpa.config.Configuration;
 import org.jboss.as.jpa.config.PersistenceProviderDeploymentHolder;
 import org.jboss.as.jpa.config.PersistenceUnitMetadataHolder;
 import org.jboss.as.jpa.persistenceprovider.PersistenceProviderLoader;
+import org.jboss.as.jpa.persistenceprovider.PersistenceProviderResolverImpl;
 import org.jboss.as.jpa.service.JPAService;
 import org.jboss.as.jpa.service.PersistenceUnitServiceImpl;
 import org.jboss.as.jpa.spi.ManagementAdaptor;
@@ -121,6 +122,12 @@ public class PersistenceUnitDeploymentProcessor implements DeploymentUnitProcess
 
     @Override
     public void undeploy(DeploymentUnit context) {
+        final List<PersistenceProvider> appProviders = context.getAttachmentList(JpaAttachments.APP_PROVIDERS);
+        if (appProviders != null) {
+            PersistenceProviderResolverImpl resolver = PersistenceProviderResolverImpl.getInstance();
+            for (PersistenceProvider pp : appProviders)
+                resolver.removePersistenceProvider(pp);
+        }
     }
 
     private void handleJarDeployment(DeploymentPhaseContext phaseContext) throws DeploymentUnitProcessingException {
@@ -268,6 +275,10 @@ public class PersistenceUnitDeploymentProcessor implements DeploymentUnitProcess
                         //  look provider up if we didn't use the providers packaged with the application
                         if (provider == null) {
                             provider = lookupProvider(pu);
+                        } else {
+                            deploymentUnit.addToAttachmentList(JpaAttachments.APP_PROVIDERS, provider);
+                            // TODO -- this is a hack!
+                            PersistenceProviderResolverImpl.getInstance().addPersistenceProvider(provider);
                         }
 
                         // add persistence provider specific properties
