@@ -278,7 +278,8 @@ public class PersistenceUnitDeploymentProcessor implements DeploymentUnitProcess
                         } else {
                             deploymentUnit.addToAttachmentList(JpaAttachments.APP_PROVIDERS, provider);
                             // TODO -- this is a hack!
-                            PersistenceProviderResolverImpl.getInstance().addPersistenceProvider(provider);
+                            final AppPersistenceProvider app = new AppPersistenceProvider(provider);
+                            PersistenceProviderResolverImpl.getInstance().addPersistenceProvider(app);
                         }
 
                         // add persistence provider specific properties
