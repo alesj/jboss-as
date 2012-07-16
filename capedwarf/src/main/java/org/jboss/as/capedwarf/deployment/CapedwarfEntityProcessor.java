@@ -57,27 +57,35 @@ import org.jboss.msc.value.ImmediateValue;
  */
 public class CapedwarfEntityProcessor extends CapedwarfDeploymentUnitProcessor {
     private static final DotName JPA_ENTITY = DotName.createSimple("javax.persistence.Entity");
+    private static final DotName JPA_EMBEDDABLE = DotName.createSimple("javax.persistence.Embeddable");
+    private static final DotName JPA_MAPPED_SUPERCLASS = DotName.createSimple("javax.persistence.MappedSuperclass");
     private static final DotName JPA_SEQUENCE_GENERATOR = DotName.createSimple("javax.persistence.SequenceGenerator");
+    private static final DotName JDO_ENTITY = DotName.createSimple("javax.jdo.annotations.PersistenceCapable");
     private static final DotName JDO_SEQUENCE = DotName.createSimple("javax.jdo.annotations.Sequence");
 
-    private static JndiName JNDI_NAME = JndiName.of("java:jboss").append(CAPEDWARF).append("persistence").append("allocationsMap");
+    private static JndiName JNDI_NAME = JndiName.of("java:jboss").append(CAPEDWARF).append("persistence");
+    private static JndiName ALLOCATIONS_MAP_JNDI = JNDI_NAME.append("allocationsMap");
+    private static JndiName ENTITIES_JNDI = JNDI_NAME.append("entities");
 
     protected void doDeploy(DeploymentPhaseContext phaseContext) throws DeploymentUnitProcessingException {
         final DeploymentUnit unit = phaseContext.getDeploymentUnit();
         final CompositeIndex index = unit.getAttachment(Attachments.COMPOSITE_ANNOTATION_INDEX);
         final Map<String, Integer> allocationsMap = new HashMap<String, Integer>();
+        final Set<String> entityClasses = new HashSet<String>();
         // handle JPA
         final List<AnnotationInstance> entities = index.getAnnotations(JPA_ENTITY);
         if (entities.isEmpty() == false) {
+            // fill-in entity classes
+            final Map<String, AnnotationInstance> entityMap = new HashMap<String, AnnotationInstance>();
+            for (AnnotationInstance ai : entities) {
+                final AnnotationTarget target = ai.target();
+                final ClassInfo ci = (ClassInfo) target;
+                final String className = ci.name().toString();
+                entityMap.put(className, ai);
+                entityClasses.add(className);
+            }
             final List<AnnotationInstance> generators = index.getAnnotations(JPA_SEQUENCE_GENERATOR);
             if (generators.isEmpty() == false) {
-                // fill-in entity classes
-                final Map<String, AnnotationInstance> entityMap = new HashMap<String, AnnotationInstance>();
-                for (AnnotationInstance ai : entities) {
-                    final AnnotationTarget target = ai.target();
-                    final ClassInfo ci = (ClassInfo) target;
-                    entityMap.put(ci.name().local(), ai);
-                }
                 // map sequence generator to its entity
                 for (AnnotationInstance ai : generators) {
                     final AnnotationValue allocationSize = ai.value("allocationSize");
@@ -86,13 +94,13 @@ public class CapedwarfEntityProcessor extends CapedwarfDeploymentUnitProcessor {
                         String className = null;
                         if (target instanceof ClassInfo) {
                             final ClassInfo ci = (ClassInfo) target;
-                            className = ci.name().local();
+                            className = ci.name().toString();
                         } else if (target instanceof MethodInfo) {
                             final MethodInfo mi = (MethodInfo) target;
-                            className = mi.declaringClass().name().local();
+                            className = mi.declaringClass().name().toString();
                         } else if (target instanceof FieldInfo) {
                             final FieldInfo fi = (FieldInfo) target;
-                            className = fi.declaringClass().name().local();
+                            className = fi.declaringClass().name().toString();
                         }
 
                         if (className != null) {
@@ -103,7 +111,7 @@ public class CapedwarfEntityProcessor extends CapedwarfDeploymentUnitProcessor {
                             } else {
                                 final Set<ClassInfo> allKnownSubclasses = index.getAllKnownSubclasses(DotName.createSimple(className));
                                 for (ClassInfo ci : allKnownSubclasses) {
-                                    final String ciCN = ci.name().local();
+                                    final String ciCN = ci.name().toString();
                                     final AnnotationInstance ea = entityMap.get(ciCN);
                                     if (ea != null) {
                                         kinds.add(toKind(ciCN, ea));
@@ -119,11 +127,14 @@ public class CapedwarfEntityProcessor extends CapedwarfDeploymentUnitProcessor {
                 }
             }
         }
+        addTargetClasses(index, JPA_EMBEDDABLE, entityClasses);
+        addTargetClasses(index, JPA_MAPPED_SUPERCLASS, entityClasses);
+
         // handle JDO
         for (AnnotationInstance ai : index.getAnnotations(JDO_SEQUENCE)) {
             final AnnotationValue extensions = ai.value("extensions");
             if (extensions != null) {
-                final String kind = toKind(((ClassInfo) ai.target()).name().local());
+                final String kind = toKind(((ClassInfo) ai.target()).name().toString());
                 final AnnotationInstance[] aies = extensions.asNestedArray();
                 for (AnnotationInstance aie : aies) {
                     final AnnotationValue vendorName = aie.value("vendorName");
@@ -137,17 +148,39 @@ public class CapedwarfEntityProcessor extends CapedwarfDeploymentUnitProcessor {
                 }
             }
         }
+        addTargetClasses(index, JDO_ENTITY, entityClasses);
 
         // push allocationsMap to JNDI
-        final String jndiName = JNDI_NAME.append(CapedwarfDeploymentMarker.getAppId(unit)).getAbsoluteName();
-        final ContextNames.BindInfo bindInfo = ContextNames.bindInfoFor(jndiName);
-        final BinderService binder = new BinderService(bindInfo.getBindName());
-        final ServiceBuilder<ManagedReferenceFactory> binderBuilder = phaseContext.getServiceTarget().addService(bindInfo.getBinderServiceName(), binder)
+        String jndiName = ALLOCATIONS_MAP_JNDI.append(CapedwarfDeploymentMarker.getAppId(unit)).getAbsoluteName();
+        ContextNames.BindInfo bindInfo = ContextNames.bindInfoFor(jndiName);
+        BinderService binder = new BinderService(bindInfo.getBindName());
+        ServiceBuilder<ManagedReferenceFactory> binderBuilder = phaseContext.getServiceTarget().addService(bindInfo.getBinderServiceName(), binder)
                 .addAliases(ContextNames.JAVA_CONTEXT_SERVICE_NAME.append(jndiName))
                 .addInjectionValue(new ManagedReferenceInjector<Map>(binder.getManagedObjectInjector()), new ImmediateValue<Map>(allocationsMap))
                 .addDependency(bindInfo.getParentContextServiceName(), ServiceBasedNamingStore.class, binder.getNamingStoreInjector())
                 .setInitialMode(ServiceController.Mode.ACTIVE);
         binderBuilder.install();
+
+        // push entities to JNDI
+        jndiName = ENTITIES_JNDI.append(CapedwarfDeploymentMarker.getAppId(unit)).getAbsoluteName();
+        bindInfo = ContextNames.bindInfoFor(jndiName);
+        binder = new BinderService(bindInfo.getBindName());
+        binderBuilder = phaseContext.getServiceTarget().addService(bindInfo.getBinderServiceName(), binder)
+                .addAliases(ContextNames.JAVA_CONTEXT_SERVICE_NAME.append(jndiName))
+                .addInjectionValue(new ManagedReferenceInjector<Set>(binder.getManagedObjectInjector()), new ImmediateValue<Set>(entityClasses))
+                .addDependency(bindInfo.getParentContextServiceName(), ServiceBasedNamingStore.class, binder.getNamingStoreInjector())
+                .setInitialMode(ServiceController.Mode.ACTIVE);
+        binderBuilder.install();
+    }
+
+    private static void addTargetClasses(CompositeIndex index, DotName annotation, Set<String> set) {
+        for (AnnotationInstance ai : index.getAnnotations(annotation)) {
+            final AnnotationTarget target = ai.target();
+            if (target instanceof ClassInfo) {
+                ClassInfo ci = (ClassInfo) target;
+                set.add(ci.name().toString());
+            }
+        }
     }
 
     private static String toKind(String className, AnnotationInstance entityAnnotation) {
