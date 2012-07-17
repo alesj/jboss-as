@@ -194,6 +194,6 @@ public class CapedwarfEntityProcessor extends CapedwarfDeploymentUnitProcessor {
 
     private static String toKind(String className) {
         final int p = className.lastIndexOf(".");
-        return (p > 0) ? className.substring(p) : className;
+        return (p > 0) ? className.substring(p + 1) : className;
     }
 }
