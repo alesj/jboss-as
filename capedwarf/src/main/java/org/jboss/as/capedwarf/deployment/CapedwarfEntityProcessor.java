@@ -90,6 +90,12 @@ public class CapedwarfEntityProcessor extends CapedwarfDeploymentUnitProcessor {
                 for (AnnotationInstance ai : generators) {
                     final AnnotationValue allocationSize = ai.value("allocationSize");
                     if (allocationSize != null) {
+                        final AnnotationValue seqName = ai.value("sequenceName");
+                        if (seqName != null && seqName.asString().length() > 0) {
+                            allocationsMap.put(seqName.asString(), (-1) * allocationSize.asInt());
+                            continue;
+                        }
+
                         AnnotationTarget target = ai.target();
                         String className = null;
                         if (target instanceof ClassInfo) {
@@ -104,23 +110,19 @@ public class CapedwarfEntityProcessor extends CapedwarfDeploymentUnitProcessor {
                         }
 
                         if (className != null) {
-                            final Set<String> kinds = new HashSet<String>();
+                            int as = allocationSize.asInt();
                             final AnnotationInstance entityAnnotation = entityMap.get(className);
                             if (entityAnnotation != null) {
-                                kinds.add(toKind(className, entityAnnotation));
+                                allocationsMap.put(toKind(className, entityAnnotation), as);
                             } else {
                                 final Set<ClassInfo> allKnownSubclasses = index.getAllKnownSubclasses(DotName.createSimple(className));
                                 for (ClassInfo ci : allKnownSubclasses) {
                                     final String ciCN = ci.name().toString();
                                     final AnnotationInstance ea = entityMap.get(ciCN);
                                     if (ea != null) {
-                                        kinds.add(toKind(ciCN, ea));
+                                        allocationsMap.put(toKind(className, ea), as);
                                     }
                                 }
-                            }
-
-                            for (String kind : kinds) {
-                                allocationsMap.put(kind, allocationSize.asInt());
                             }
                         }
                     }
@@ -132,9 +134,14 @@ public class CapedwarfEntityProcessor extends CapedwarfDeploymentUnitProcessor {
 
         // handle JDO
         for (AnnotationInstance ai : index.getAnnotations(JDO_SEQUENCE)) {
+            String seqName = null;
+            AnnotationValue seqNameAV = ai.value("datastoreSequence");
+            if (seqNameAV != null && seqNameAV.asString().length() > 0) {
+                seqName = seqNameAV.asString();
+                allocationsMap.put(seqName, (-1));
+            }
             final AnnotationValue extensions = ai.value("extensions");
             if (extensions != null) {
-                final String kind = toKind(((ClassInfo) ai.target()).name().toString());
                 final AnnotationInstance[] aies = extensions.asNestedArray();
                 for (AnnotationInstance aie : aies) {
                     final AnnotationValue vendorName = aie.value("vendorName");
@@ -142,7 +149,12 @@ public class CapedwarfEntityProcessor extends CapedwarfDeploymentUnitProcessor {
                     if (vendorName != null && key != null && "datanucleus".equals(vendorName.asString()) && "key-cache-size".equals(key.asString())) {
                         final AnnotationValue value = aie.value("value");
                         if (value != null) {
-                            allocationsMap.put(kind, Integer.parseInt(value.asString()));
+                            if (seqName != null) {
+                                allocationsMap.put(seqName, (-1) * Integer.parseInt(value.asString()));
+                            } else {
+                                final String kind = toKind(((ClassInfo) ai.target()).name().toString());
+                                allocationsMap.put(kind, Integer.parseInt(value.asString()));
+                            }
                         }
                     }
                 }
