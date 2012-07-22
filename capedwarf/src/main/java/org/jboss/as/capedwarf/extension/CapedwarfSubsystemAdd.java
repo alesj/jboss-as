@@ -24,6 +24,7 @@ package org.jboss.as.capedwarf.extension;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.logging.Handler;
 
 import javax.jms.Connection;
@@ -45,6 +46,7 @@ import org.jboss.as.capedwarf.deployment.CapedwarfWebCleanupProcessor;
 import org.jboss.as.capedwarf.deployment.CapedwarfWebComponentsDeploymentProcessor;
 import org.jboss.as.capedwarf.deployment.CapedwarfWeldParseProcessor;
 import org.jboss.as.capedwarf.deployment.CapedwarfWeldProcessor;
+import org.jboss.as.capedwarf.services.OptionalExecutorService;
 import org.jboss.as.capedwarf.services.ServletExecutorConsumerService;
 import org.jboss.as.clustering.jgroups.subsystem.ChannelService;
 import org.jboss.as.controller.AbstractBoottimeAddStepHandler;
@@ -65,6 +67,7 @@ import org.jboss.as.server.DeploymentProcessorTarget;
 import org.jboss.as.server.Services;
 import org.jboss.as.server.deployment.Phase;
 import org.jboss.as.server.deployment.module.TempFileProviderService;
+import org.jboss.as.threads.ThreadsServices;
 import org.jboss.dmr.ModelNode;
 import org.jboss.modules.ModuleLoader;
 import org.jboss.msc.service.Service;
@@ -118,6 +121,7 @@ class CapedwarfSubsystemAdd extends AbstractBoottimeAddStepHandler {
 
                 final ServletExecutorConsumerService consumerService = addQueueConsumer(serviceTarget, newControllers);
                 putChannelToJndi(serviceTarget, newControllers);
+                putExecutorToJndi(serviceTarget, newControllers);
 
                 final TempDir tempDir = createTempDir(serviceTarget, newControllers);
 
@@ -163,6 +167,26 @@ class CapedwarfSubsystemAdd extends AbstractBoottimeAddStepHandler {
         final ServiceBuilder<ManagedReferenceFactory> binderBuilder = serviceTarget.addService(bindInfo.getBinderServiceName(), binder)
                 .addAliases(ContextNames.JAVA_CONTEXT_SERVICE_NAME.append(jndiName))
                 .addDependency(serviceName, JChannel.class, new ManagedReferenceInjector<JChannel>(binder.getManagedObjectInjector()))
+                .addDependency(bindInfo.getParentContextServiceName(), ServiceBasedNamingStore.class, binder.getNamingStoreInjector())
+                .setInitialMode(ServiceController.Mode.ON_DEMAND);
+        newControllers.add(binderBuilder.install());
+    }
+
+    protected void putExecutorToJndi(ServiceTarget serviceTarget, List<ServiceController<?>> newControllers) {
+        final ServiceName realExecutor = ThreadsServices.executorName(Constants.CAPEDWARF);
+        final ServiceName optionalExecutor = ServiceName.JBOSS.append(Constants.CAPEDWARF).append("OptionalExecutor");
+        final OptionalExecutorService oes = new OptionalExecutorService();
+        final ServiceBuilder<Executor> executorServiceBuilder = serviceTarget.addService(optionalExecutor, oes);
+        executorServiceBuilder.addDependency(ServiceBuilder.DependencyType.OPTIONAL, realExecutor, Executor.class, oes.getExecutorInjectedValue());
+        executorServiceBuilder.setInitialMode(ServiceController.Mode.ON_DEMAND);
+        newControllers.add(executorServiceBuilder.install());
+
+        final String jndiName = Constants.EXECUTOR_JNDI;
+        final ContextNames.BindInfo bindInfo = Constants.EXECUTOR_BIND_INFO;
+        final BinderService binder = new BinderService(bindInfo.getBindName());
+        final ServiceBuilder<ManagedReferenceFactory> binderBuilder = serviceTarget.addService(bindInfo.getBinderServiceName(), binder)
+                .addAliases(ContextNames.JAVA_CONTEXT_SERVICE_NAME.append(jndiName))
+                .addDependency(optionalExecutor, Executor.class, new ManagedReferenceInjector<Executor>(binder.getManagedObjectInjector()))
                 .addDependency(bindInfo.getParentContextServiceName(), ServiceBasedNamingStore.class, binder.getNamingStoreInjector())
                 .setInitialMode(ServiceController.Mode.ON_DEMAND);
         newControllers.add(binderBuilder.install());
