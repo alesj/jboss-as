@@ -69,7 +69,7 @@ public class ModuleGroupSingletonProvider extends SingletonProvider {
 
         private volatile Map<ClassLoader, T> store = Collections.emptyMap();
 
-        public T get() {
+        public T get(String id) {
             T instance = store.get(findParentModuleCl(getClassLoader()));
             if (instance == null) {
                 throw WeldMessages.MESSAGES.singletonNotSet(getClassLoader());
@@ -77,7 +77,7 @@ public class ModuleGroupSingletonProvider extends SingletonProvider {
             return instance;
         }
 
-        public synchronized void set(T object) {
+        public synchronized void set(String id, T object) {
             final Map<ClassLoader, T> store = new IdentityHashMap<ClassLoader, T>(this.store);
             ClassLoader classLoader = getClassLoader();
             store.put(classLoader, object);
@@ -89,7 +89,7 @@ public class ModuleGroupSingletonProvider extends SingletonProvider {
             this.store = store;
         }
 
-        public synchronized void clear() {
+        public synchronized void clear(String id) {
             ClassLoader classLoader = getClassLoader();
             final Map<ClassLoader, T> store = new IdentityHashMap<ClassLoader, T>(this.store);
             store.remove(classLoader);
@@ -101,14 +101,14 @@ public class ModuleGroupSingletonProvider extends SingletonProvider {
             this.store = store;
         }
 
-        public boolean isSet() {
+        public boolean isSet(String id) {
             return store.containsKey(findParentModuleCl(getClassLoader()));
         }
 
         /**
          * If a custom CL is in use we want to get the module CL it delegates to
          * @param classLoader The current CL
-         * @returnThe corresponding module CL
+         * @return The corresponding module CL
          */
         private ClassLoader findParentModuleCl(ClassLoader classLoader) {
             ClassLoader c = classLoader;
