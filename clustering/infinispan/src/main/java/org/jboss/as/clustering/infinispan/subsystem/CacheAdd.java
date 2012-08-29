@@ -471,11 +471,11 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
                     .fetchPersistentState(fetchState)
                     .purgeOnStartup(purge)
                     .purgeSynchronously(true);
-            storeBuilder.singletonStore().enabled(singleton);
+            storeBuilder.loaders().addStore().singletonStore().enabled(singleton);
 
             if (async) {
                 ModelNode writeBehind = store.get(ModelKeys.WRITE_BEHIND, ModelKeys.WRITE_BEHIND_NAME);
-                storeBuilder.async().enable()
+                storeBuilder.loaders().addStore().async().enable()
                         .flushLockTimeout(CommonAttributes.FLUSH_LOCK_TIMEOUT.resolveModelAttribute(context, writeBehind).asLong())
                         .modificationQueueSize(CommonAttributes.MODIFICATION_QUEUE_SIZE.resolveModelAttribute(context, writeBehind).asInt())
                         .shutdownTimeout(CommonAttributes.SHUTDOWN_TIMEOUT.resolveModelAttribute(context, writeBehind).asLong())
@@ -540,7 +540,7 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
 
         ModelNode resolvedValue = null;
         if (storeKey.equals(ModelKeys.FILE_STORE)) {
-            builder.cacheLoader(new FileCacheStore());
+            builder.loaders().addFileCacheStore();
 
             final String path = ((resolvedValue = CommonAttributes.PATH.resolveModelAttribute(context, store)).isDefined()) ? resolvedValue.asString() : InfinispanExtension.SUBSYSTEM_NAME + File.separatorChar + containerName;
             final String relativeTo = ((resolvedValue = CommonAttributes.RELATIVE_TO.resolveModelAttribute(context, store)).isDefined()) ? resolvedValue.asString() : ServerEnvironment.SERVER_DATA_DIR;
@@ -563,7 +563,7 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
             dependencies.add(new Dependency<PathManager>(PathManagerService.SERVICE_NAME, PathManager.class, injector));
             properties.setProperty("fsyncMode", "perWrite");
         } else if (storeKey.equals(ModelKeys.STRING_KEYED_JDBC_STORE) || storeKey.equals(ModelKeys.BINARY_KEYED_JDBC_STORE) || storeKey.equals(ModelKeys.MIXED_KEYED_JDBC_STORE)) {
-            builder.cacheLoader(this.createJDBCStore(properties, context, store));
+            builder.loaders().addStore().cacheLoader(this.createJDBCStore(properties, context, store));
 
             final String datasource = CommonAttributes.DATA_SOURCE.resolveModelAttribute(context, store).asString();
 
@@ -571,7 +571,7 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
             properties.setProperty("datasourceJndiLocation", datasource);
             properties.setProperty("connectionFactoryClass", ManagedConnectionFactory.class.getName());
         } else if (storeKey.equals(ModelKeys.REMOTE_STORE)) {
-            builder.cacheLoader(new RemoteCacheStore());
+            builder.loaders().addStore().cacheLoader(new RemoteCacheStore());
             for (ModelNode server : store.require(ModelKeys.REMOTE_SERVERS).asList()) {
                 String outboundSocketBinding = server.get(ModelKeys.OUTBOUND_SOCKET_BINDING).asString();
                 Injector<OutboundSocketBinding> injector = new SimpleInjector<OutboundSocketBinding>() {
@@ -604,7 +604,7 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
             String className = store.require(ModelKeys.CLASS).asString();
             try {
                 CacheLoader loader = CacheLoader.class.getClassLoader().loadClass(className).asSubclass(CacheLoader.class).newInstance();
-                builder.cacheLoader(loader);
+                builder.loaders().addStore().cacheLoader(loader);
             } catch (Exception e) {
                 throw new IllegalArgumentException(String.format("%s is not a valid cache store", className), e);
             }
