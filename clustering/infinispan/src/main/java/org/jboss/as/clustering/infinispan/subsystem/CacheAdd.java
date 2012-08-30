@@ -1,7 +1,5 @@
 package org.jboss.as.clustering.infinispan.subsystem;
 
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,7 +20,7 @@ import org.infinispan.Cache;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
-import org.infinispan.configuration.cache.LoaderConfigurationBuilder;
+import org.infinispan.configuration.cache.LegacyStoreConfigurationBuilder;
 import org.infinispan.configuration.parsing.ConfigurationBuilderHolder;
 import org.infinispan.configuration.parsing.Parser;
 import org.infinispan.eviction.EvictionStrategy;
@@ -71,6 +69,8 @@ import org.jboss.msc.service.ServiceTarget;
 import org.jboss.msc.value.InjectedValue;
 import org.jboss.msc.value.Value;
 import org.jboss.tm.XAResourceRecoveryRegistry;
+
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
 
 /**
  * Base class for cache add handlers
@@ -467,15 +467,15 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
                     .preload(preload)
                     .passivation(passivation)
             ;
-            LoaderConfigurationBuilder storeBuilder = builder.loaders().addCacheLoader()
+            LegacyStoreConfigurationBuilder storeBuilder = builder.loaders().addCacheLoader()
                     .fetchPersistentState(fetchState)
                     .purgeOnStartup(purge)
                     .purgeSynchronously(true);
-            storeBuilder.loaders().addStore().singletonStore().enabled(singleton);
+            storeBuilder.singletonStore().enabled(singleton);
 
             if (async) {
                 ModelNode writeBehind = store.get(ModelKeys.WRITE_BEHIND, ModelKeys.WRITE_BEHIND_NAME);
-                storeBuilder.loaders().addStore().async().enable()
+                storeBuilder.async().enable()
                         .flushLockTimeout(CommonAttributes.FLUSH_LOCK_TIMEOUT.resolveModelAttribute(context, writeBehind).asLong())
                         .modificationQueueSize(CommonAttributes.MODIFICATION_QUEUE_SIZE.resolveModelAttribute(context, writeBehind).asInt())
                         .shutdownTimeout(CommonAttributes.SHUTDOWN_TIMEOUT.resolveModelAttribute(context, writeBehind).asLong())
@@ -521,7 +521,7 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
     }
 
 
-    private void buildCacheStore(OperationContext context, LoaderConfigurationBuilder builder, String containerName, ModelNode store, String storeKey, List<Dependency<?>> dependencies)
+    private void buildCacheStore(OperationContext context, LegacyStoreConfigurationBuilder builder, String containerName, ModelNode store, String storeKey, List<Dependency<?>> dependencies)
             throws OperationFailedException {
         final Properties properties = new TypedProperties();
         if (store.hasDefined(ModelKeys.PROPERTY)) {
@@ -540,7 +540,7 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
 
         ModelNode resolvedValue = null;
         if (storeKey.equals(ModelKeys.FILE_STORE)) {
-            builder.loaders().addFileCacheStore();
+            builder.cacheStore(new FileCacheStore());
 
             final String path = ((resolvedValue = CommonAttributes.PATH.resolveModelAttribute(context, store)).isDefined()) ? resolvedValue.asString() : InfinispanExtension.SUBSYSTEM_NAME + File.separatorChar + containerName;
             final String relativeTo = ((resolvedValue = CommonAttributes.RELATIVE_TO.resolveModelAttribute(context, store)).isDefined()) ? resolvedValue.asString() : ServerEnvironment.SERVER_DATA_DIR;
@@ -563,7 +563,7 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
             dependencies.add(new Dependency<PathManager>(PathManagerService.SERVICE_NAME, PathManager.class, injector));
             properties.setProperty("fsyncMode", "perWrite");
         } else if (storeKey.equals(ModelKeys.STRING_KEYED_JDBC_STORE) || storeKey.equals(ModelKeys.BINARY_KEYED_JDBC_STORE) || storeKey.equals(ModelKeys.MIXED_KEYED_JDBC_STORE)) {
-            builder.loaders().addStore().cacheLoader(this.createJDBCStore(properties, context, store));
+            builder.cacheStore(this.createJDBCStore(properties, context, store));
 
             final String datasource = CommonAttributes.DATA_SOURCE.resolveModelAttribute(context, store).asString();
 
@@ -571,7 +571,7 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
             properties.setProperty("datasourceJndiLocation", datasource);
             properties.setProperty("connectionFactoryClass", ManagedConnectionFactory.class.getName());
         } else if (storeKey.equals(ModelKeys.REMOTE_STORE)) {
-            builder.loaders().addStore().cacheLoader(new RemoteCacheStore());
+            builder.cacheStore(new RemoteCacheStore());
             for (ModelNode server : store.require(ModelKeys.REMOTE_SERVERS).asList()) {
                 String outboundSocketBinding = server.get(ModelKeys.OUTBOUND_SOCKET_BINDING).asString();
                 Injector<OutboundSocketBinding> injector = new SimpleInjector<OutboundSocketBinding>() {
@@ -604,7 +604,7 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
             String className = store.require(ModelKeys.CLASS).asString();
             try {
                 CacheLoader loader = CacheLoader.class.getClassLoader().loadClass(className).asSubclass(CacheLoader.class).newInstance();
-                builder.loaders().addStore().cacheLoader(loader);
+                builder.cacheLoader(loader);
             } catch (Exception e) {
                 throw new IllegalArgumentException(String.format("%s is not a valid cache store", className), e);
             }
