@@ -46,7 +46,7 @@ public class AuthenticationCacheEvictionListener implements EvictionListener<Pri
     }
 
     @Override
-    public void onEntryChosenForEviction(DomainInfo arg0) {
-        // Do nothing
+    public boolean onEntryChosenForEviction(DomainInfo arg0) {
+        return true; // Always agree on eviction
     }
 }

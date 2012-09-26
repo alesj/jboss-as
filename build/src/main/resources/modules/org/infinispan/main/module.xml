@@ -34,5 +34,6 @@
         <module name="org.jboss.marshalling"/>
         <module name="org.jboss.marshalling.river"/>
         <module name="org.jgroups"/>
+        <module name="org.jboss.staxmapper"/>
     </dependencies>
 </module>
