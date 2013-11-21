@@ -72,19 +72,24 @@ public class ChannelProvider implements JGroupsChannelLookup {
 
     /**
      * {@inheritDoc}
-     * @see org.infinispan.remoting.transport.jgroups.JGroupsChannelLookup#shouldStartAndConnect()
+     * @see org.infinispan.remoting.transport.jgroups.JGroupsChannelLookup#shouldConnect()
      */
     @Override
-    public boolean shouldStartAndConnect() {
+    public boolean shouldConnect() {
         return true;
     }
 
     /**
      * {@inheritDoc}
-     * @see org.infinispan.remoting.transport.jgroups.JGroupsChannelLookup#shouldStopAndDisconnect()
+     * @see org.infinispan.remoting.transport.jgroups.JGroupsChannelLookup#shouldDisconnect()
      */
     @Override
-    public boolean shouldStopAndDisconnect() {
+    public boolean shouldDisconnect() {
+        return true;
+    }
+
+    @Override
+    public boolean shouldClose() {
         return true;
     }
 }
