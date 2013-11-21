@@ -108,7 +108,7 @@
             <transaction mode="NON_XA" locking="PESSIMISTIC"/>
             <eviction strategy="NONE"/>
         </replicated-cache>
-        <distributed-cache name="default" mode="ASYNC" >
+        <distributed-cache name="default" mode="ASYNC" module="org.infinispan.query">
             <transaction mode="NON_XA"/>
             <eviction strategy="NONE"/>
             <file-store preload="true" purge="false"/>
@@ -123,7 +123,7 @@
             <eviction strategy="NONE"/>
             <file-store preload="true" purge="false"/>
         </distributed-cache>
-        <distributed-cache name="tasks" mode="ASYNC">
+        <distributed-cache name="tasks" mode="ASYNC" module="org.infinispan.query">
             <transaction mode="NON_XA"/>
             <eviction strategy="LIRS" max-entries="10000"/>
             <file-store preload="true" purge="false"/>

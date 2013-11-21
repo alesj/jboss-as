@@ -96,7 +96,6 @@ import org.jboss.msc.service.ServiceController;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.ServiceTarget;
 import org.jboss.msc.value.InjectedValue;
-import org.jboss.msc.value.Value;
 import org.jboss.tm.XAResourceRecoveryRegistry;
 
 /**
@@ -197,9 +196,11 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
         List<Dependency<?>> dependencies = new LinkedList<>();
         // Infinispan Configuration to hold the operation data
         ConfigurationBuilder builder = new ConfigurationBuilder().read(getDefaultConfiguration(this.mode));
+        CacheConfigurationDependencies cacheConfigurationDependencies = new CacheConfigurationDependencies();
+        CacheDependencies cacheDependencies = new CacheDependencies();
 
         // process cache configuration ModelNode describing overrides to defaults
-        processModelNode(context, containerName, cacheModel, builder, dependencies);
+        processModelNode(context, containerName, cacheModel, builder, cacheConfigurationDependencies, cacheDependencies, dependencies);
 
         // get container Model to pick up the value of the default cache of the container
         // AS7-3488 make default-cache no required attribute
@@ -207,22 +208,21 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
         boolean defaultCache = cacheName.equals(defaultCacheName);
 
         ServiceTarget target = context.getServiceTarget();
-        Configuration config = builder.build();
 
         Collection<ServiceController<?>> controllers = new ArrayList<>(3);
 
         // install the cache configuration service (configures a cache)
-        controllers.add(this.installCacheConfigurationService(target, containerName, cacheName, defaultCache, moduleId, builder, config, dependencies, verificationHandler));
+        controllers.add(this.installCacheConfigurationService(target, containerName, cacheName, defaultCache, moduleId, builder, cacheConfigurationDependencies, dependencies, verificationHandler));
         log.debugf("Cache configuration service for %s installed for container %s", cacheName, containerName);
 
         // now install the corresponding cache service (starts a configured cache)
-        controllers.add(this.installCacheService(target, containerName, cacheName, defaultCache, initialMode, config, verificationHandler));
+        controllers.add(this.installCacheService(target, containerName, cacheName, defaultCache, initialMode, cacheDependencies, verificationHandler));
 
         // install a name service entry for the cache
         controllers.add(this.installJndiService(target, containerName, cacheName, defaultCache, jndiName, verificationHandler));
         log.debugf("Cache service for cache %s installed for container %s", cacheName, containerName);
 
-        if (config.clustering().cacheMode().isClustered()) {
+        if (this.mode.isClustered()) {
             for (CacheServiceProvider provider: ServiceLoader.load(CacheServiceProvider.class, CacheServiceProvider.class.getClassLoader())) {
                 log.debugf("Installing %s for cache %s/%s", provider.getClass().getSimpleName(), containerName, cacheName);
                 controllers.addAll(provider.install(target, containerName, cacheName, defaultCache, moduleId));
@@ -276,24 +276,14 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
     }
 
     ServiceController<?> installCacheConfigurationService(ServiceTarget target, String containerName, String cacheName, boolean defaultCache, ModuleIdentifier moduleId,
-            ConfigurationBuilder builder, Configuration config, List<Dependency<?>> dependencies, ServiceVerificationHandler verificationHandler) {
+            ConfigurationBuilder builder, CacheConfigurationDependencies cacheConfigurationDependencies, List<Dependency<?>> dependencies, ServiceVerificationHandler verificationHandler) {
 
-        final InjectedValue<EmbeddedCacheManager> container = new InjectedValue<>();
-        final CacheConfigurationDependencies cacheConfigurationDependencies = new CacheConfigurationDependencies(container);
-        final Service<Configuration> service = new CacheConfigurationService(cacheName, builder, moduleId, cacheConfigurationDependencies);
-        final ServiceBuilder<?> configBuilder = AsynchronousService.addService(target, CacheConfigurationService.getServiceName(containerName, cacheName), service)
-                .addDependency(EmbeddedCacheManagerService.getServiceName(containerName), EmbeddedCacheManager.class, container)
+        Service<Configuration> service = new CacheConfigurationService(cacheName, builder, moduleId, cacheConfigurationDependencies);
+        ServiceBuilder<?> configBuilder = AsynchronousService.addService(target, CacheConfigurationService.getServiceName(containerName, cacheName), service)
+                .addDependency(EmbeddedCacheManagerService.getServiceName(containerName), EmbeddedCacheManager.class, cacheConfigurationDependencies.getCacheContainerInjector())
                 .addDependency(Services.JBOSS_SERVICE_MODULE_LOADER, ModuleLoader.class, cacheConfigurationDependencies.getModuleLoaderInjector())
                 .setInitialMode(ServiceController.Mode.PASSIVE)
         ;
-        if (config.invocationBatching().enabled()) {
-            cacheConfigurationDependencies.getTransactionManagerInjector().inject(BatchModeTransactionManager.getInstance());
-        } else if (config.transaction().transactionMode() == org.infinispan.transaction.TransactionMode.TRANSACTIONAL) {
-            configBuilder.addDependency(TxnServices.JBOSS_TXN_TRANSACTION_MANAGER, TransactionManager.class, cacheConfigurationDependencies.getTransactionManagerInjector());
-            if (config.transaction().useSynchronization()) {
-                configBuilder.addDependency(TxnServices.JBOSS_TXN_SYNCHRONIZATION_REGISTRY, TransactionSynchronizationRegistry.class, cacheConfigurationDependencies.getTransactionSynchronizationRegistryInjector());
-            }
-        }
 
         // add in any additional dependencies resulting from ModelNode parsing
         for (Dependency<?> dependency : dependencies) {
@@ -307,20 +297,15 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
     }
 
     ServiceController<?> installCacheService(ServiceTarget target, String containerName, String cacheName, boolean defaultCache, ServiceController.Mode initialMode,
-            Configuration config, ServiceVerificationHandler verificationHandler) {
+            CacheDependencies cacheDependencies, ServiceVerificationHandler verificationHandler) {
 
-        final InjectedValue<EmbeddedCacheManager> container = new InjectedValue<>();
-        final CacheDependencies cacheDependencies = new CacheDependencies(container);
-        final Service<Cache<Object, Object>> service = new CacheService<>(cacheName, cacheDependencies);
-        final ServiceBuilder<?> builder = AsynchronousService.addService(target, CacheService.getServiceName(containerName, cacheName), service)
+        Service<Cache<Object, Object>> service = new CacheService<>(cacheName, cacheDependencies);
+        ServiceBuilder<?> builder = AsynchronousService.addService(target, CacheService.getServiceName(containerName, cacheName), service)
                 .addDependency(GlobalComponentRegistryService.getServiceName(containerName))
                 .addDependency(CacheConfigurationService.getServiceName(containerName, cacheName))
-                .addDependency(EmbeddedCacheManagerService.getServiceName(containerName), EmbeddedCacheManager.class, container)
+                .addDependency(EmbeddedCacheManagerService.getServiceName(containerName), EmbeddedCacheManager.class, cacheDependencies.getCacheContainerInjector())
                 .setInitialMode(initialMode)
         ;
-        if (config.transaction().recovery().enabled()) {
-            builder.addDependency(TxnServices.JBOSS_TXN_ARJUNA_RECOVERY_MANAGER, XAResourceRecoveryRegistry.class, cacheDependencies.getRecoveryRegistryInjector());
-        }
 
         // add an alias for the default cache
         if (defaultCache) {
@@ -396,7 +381,7 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
      * @param builder       ConfigurationBuilder object to add data to
      * @return initialised Configuration object
      */
-    void processModelNode(OperationContext context, String containerName, ModelNode cache, ConfigurationBuilder builder, List<Dependency<?>> dependencies) throws OperationFailedException {
+    void processModelNode(OperationContext context, String containerName, ModelNode cache, ConfigurationBuilder builder, CacheConfigurationDependencies cacheConfigurationDependencies, CacheDependencies cacheDependencies, List<Dependency<?>> dependencies) throws OperationFailedException {
 
         builder.jmxStatistics().enabled(CacheResourceDefinition.STATISTICS.resolveModelAttribute(context, cache).asBoolean());
 
@@ -451,10 +436,20 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
                     .useSynchronization(!txMode.isXAEnabled())
                     .recovery().enabled(txMode.isRecoveryEnabled())
             ;
+            if (txMode.getMode().isTransactional()) {
+                dependencies.add(new Dependency<>(TxnServices.JBOSS_TXN_TRANSACTION_MANAGER, TransactionManager.class, cacheConfigurationDependencies.getTransactionManagerInjector()));
+                if (!txMode.isXAEnabled()) {
+                    dependencies.add(new Dependency<>(TxnServices.JBOSS_TXN_SYNCHRONIZATION_REGISTRY, TransactionSynchronizationRegistry.class, cacheConfigurationDependencies.getTransactionSynchronizationRegistryInjector()));
+                }
+            }
+            if (txMode.isRecoveryEnabled()) {
+                dependencies.add(new Dependency<>(TxnServices.JBOSS_TXN_ARJUNA_RECOVERY_MANAGER, XAResourceRecoveryRegistry.class, cacheDependencies.getRecoveryRegistryInjector()));
+            }
         }
 
         if (batching) {
             builder.transaction().transactionMode(org.infinispan.transaction.TransactionMode.TRANSACTIONAL).invocationBatching().enable();
+            cacheConfigurationDependencies.getTransactionManagerInjector().inject(BatchModeTransactionManager.getInstance());
         } else {
             builder.transaction().invocationBatching().disable();
         }
@@ -589,7 +584,7 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
 
             final String path = ((resolvedValue = FileStoreResourceDefinition.PATH.resolveModelAttribute(context, store)).isDefined()) ? resolvedValue.asString() : InfinispanExtension.SUBSYSTEM_NAME + File.separatorChar + containerName;
             final String relativeTo = ((resolvedValue = FileStoreResourceDefinition.RELATIVE_TO.resolveModelAttribute(context, store)).isDefined()) ? resolvedValue.asString() : ServerEnvironment.SERVER_DATA_DIR;
-            Injector<PathManager> injector = new SimpleInjector<PathManager>() {
+            Injector<PathManager> injector = new Injector<PathManager>() {
                 private volatile PathManager.Callback.Handle callbackHandle;
                 @Override
                 public void inject(PathManager value) {
@@ -599,7 +594,6 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
 
                 @Override
                 public void uninject() {
-                    super.uninject();
                     if (this.callbackHandle != null) {
                         this.callbackHandle.remove();
                     }
@@ -619,7 +613,7 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
             final RemoteStoreConfigurationBuilder builder = persistenceBuilder.addStore(RemoteStoreConfigurationBuilder.class);
             for (ModelNode server : store.require(ModelKeys.REMOTE_SERVERS).asList()) {
                 String outboundSocketBinding = server.get(ModelKeys.OUTBOUND_SOCKET_BINDING).asString();
-                Injector<OutboundSocketBinding> injector = new SimpleInjector<OutboundSocketBinding>() {
+                Injector<OutboundSocketBinding> injector = new Injector<OutboundSocketBinding>() {
                     @Override
                     public void inject(OutboundSocketBinding value) {
                         try {
@@ -627,6 +621,10 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
                         } catch (UnknownHostException e) {
                             throw InfinispanMessages.MESSAGES.failedToInjectSocketBinding(e, value);
                         }
+                    }
+                    @Override
+                    public void uninject() {
+                        // Do nothing
                     }
                 };
                 dependencies.add(new Dependency<>(OutboundSocketBinding.OUTBOUND_SOCKET_BINDING_BASE_SERVICE_NAME.append(outboundSocketBinding), OutboundSocketBinding.class, injector));
@@ -730,20 +728,13 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
         }
     }
 
-    abstract class SimpleInjector<I> implements Injector<I> {
-        @Override
-        public void uninject() {
-            // Do nothing
-        }
-    }
+    static class CacheDependencies implements CacheService.Dependencies {
 
-    private static class CacheDependencies implements CacheService.Dependencies {
-
-        private final Value<EmbeddedCacheManager> container;
+        private final InjectedValue<EmbeddedCacheManager> container = new InjectedValue<>();
         private final InjectedValue<XAResourceRecoveryRegistry> recoveryRegistry = new InjectedValue<>();
 
-        CacheDependencies(Value<EmbeddedCacheManager> container) {
-            this.container = container;
+        Injector<EmbeddedCacheManager> getCacheContainerInjector() {
+            return this.container;
         }
 
         Injector<XAResourceRecoveryRegistry> getRecoveryRegistryInjector() {
@@ -761,15 +752,15 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
         }
     }
 
-    private static class CacheConfigurationDependencies implements CacheConfigurationService.Dependencies {
+    static class CacheConfigurationDependencies implements CacheConfigurationService.Dependencies {
 
-        private final Value<EmbeddedCacheManager> container;
+        private final InjectedValue<EmbeddedCacheManager> container = new InjectedValue<>();
         private final InjectedValue<TransactionManager> tm = new InjectedValue<>();
         private final InjectedValue<TransactionSynchronizationRegistry> tsr = new InjectedValue<>();
         private final InjectedValue<ModuleLoader> moduleLoader = new InjectedValue<>();
 
-        CacheConfigurationDependencies(Value<EmbeddedCacheManager> container) {
-            this.container = container;
+        Injector<EmbeddedCacheManager> getCacheContainerInjector() {
+            return this.container;
         }
 
         Injector<TransactionManager> getTransactionManagerInjector() {
