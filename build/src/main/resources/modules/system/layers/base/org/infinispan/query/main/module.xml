@@ -33,6 +33,9 @@
     </resources>
 
     <dependencies>
+        <module name="javax.api"/>
+        <module name="javax.transaction.api"/>
+        <module name="org.jboss.logging"/>
         <module name="org.hibernate.hql"/>
         <module name="org.hibernate.search"/>
         <module name="org.infinispan"/>

@@ -34,5 +34,6 @@
 
     <dependencies>
         <module name="org.apache.lucene"/>
+        <module name="org.infinispan"/>
     </dependencies>
 </module>
