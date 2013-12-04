@@ -45,7 +45,7 @@ import org.wildfly.security.manager.WildFlySecurityManager;
 /**
  * @author <a href="mailto:jperkins@redhat.com">James R. Perkins</a>
  */
-abstract class AbstractLoggingDeploymentProcessor implements DeploymentUnitProcessor {
+public abstract class AbstractLoggingDeploymentProcessor implements DeploymentUnitProcessor {
 
     public static final AttachmentKey<LogContext> LOG_CONTEXT_KEY = AttachmentKey.create(LogContext.class);
 
